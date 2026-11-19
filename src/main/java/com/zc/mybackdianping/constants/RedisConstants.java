@@ -9,6 +9,8 @@ public class RedisConstants {
     public static final Integer REDIS_SHOP_INFO_EXPIRE = 30;
     public static final String REDIS_SHOP_TYPE = "shop:type";
     public static final String REDIS_SHOP_LOCK = "shop:lock:";
+    public static final Long REDIS_SHOP_LOCK_EXPIRE = 10L;
 
     public static final Integer REDIS_SHOP_NULL_EXPIRE = 2;
+    public static final String CACHE_SHOP_KEY = "cache:shop:";
 }
