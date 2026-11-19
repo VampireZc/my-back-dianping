@@ -167,15 +167,20 @@ public class ShopServiceImpl extends ServiceImpl<ShopServiceMapper, Shop> implem
                 // 重建缓存
                 try {
                     Shop shopData = getById(id);
+                    if (shopData == null) {
+                        log.warn("店铺不存在，取消重建缓存，id：{}", id);
+                        return;
+                    }
                     RedisData newData = new RedisData();
                     newData.setData(shopData);
                     newData.setExpireTime(LocalDateTime.now().plusMinutes(RedisConstants.REDIS_SHOP_INFO_EXPIRE));
                     stringRedisTemplate.opsForValue().set(key, JSONUtil.toJsonStr(newData));
                     log.info("缓存重构成功");
                 }catch (Exception e){
-                    log.info("重构失败:",e);
+                    log.error("重构失败", e);
                 }finally {
-                    unlock(key);
+                    // 这里必须释放锁 lockKey，不能误删缓存 key
+                    unlock(lockKey);
                 }
             });
 
@@ -195,13 +200,20 @@ public class ShopServiceImpl extends ServiceImpl<ShopServiceMapper, Shop> implem
 
     /**
      * setnx 实现锁，返回值为true表示锁获取成功
+     *
+     * @param lockKey 锁的 key，不是缓存 key
      */
-    public boolean tryLock(String key){
-        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(key, "1", RedisConstants.REDIS_SHOP_LOCK_EXPIRE, TimeUnit.SECONDS);
+    public boolean tryLock(String lockKey){
+        Boolean flag = stringRedisTemplate.opsForValue().setIfAbsent(lockKey, "1", RedisConstants.REDIS_SHOP_LOCK_EXPIRE, TimeUnit.SECONDS);
         return BooleanUtil.isTrue(flag);
     }
-    
-    public void unlock(String key){
-        stringRedisTemplate.delete(key);
+
+    /**
+     * 释放锁
+     *
+     * @param lockKey 锁的 key，不是缓存 key
+     */
+    public void unlock(String lockKey){
+        stringRedisTemplate.delete(lockKey);
     }
 }
