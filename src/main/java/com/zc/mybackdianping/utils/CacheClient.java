@@ -52,7 +52,6 @@ public class CacheClient {
         // 先查询缓存
         String key = keyPrefix + id;
         String shopInfo = stringRedisTemplate.opsForValue().get(key);
-
         // 命中缓存直接返回（shopInfo 不为 null 就是命中，其中 "" 是空值缓存）
         if (shopInfo != null) {
             return parseCacheShop(shopInfo, type);
@@ -192,8 +191,10 @@ public class CacheClient {
             log.info("命中空值缓存，店铺不存在");
             return null;
         }
-        log.info("缓存命中");
-        return JSONUtil.toBean(shopInfo, type);
+        log.info("缓存命中 shopInfo {}", shopInfo);
+        R r = JSONUtil.toBean(shopInfo, type);
+        log.info("缓存命中 r {}", r);
+        return r;
     }
 
     /**

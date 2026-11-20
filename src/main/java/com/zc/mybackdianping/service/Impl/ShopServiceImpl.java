@@ -45,12 +45,10 @@ public class ShopServiceImpl extends ServiceImpl<ShopServiceMapper, Shop> implem
                 id,
                 RedisConstants.REDIS_SHOP_INFO,
                 Shop.class,
-                shopId -> getById(shopId),
+                this::getById,
                 RedisConstants.REDIS_SHOP_INFO_EXPIRE,
                 TimeUnit.MINUTES
         );
-
-
 
         if (shop != null) return Result.ok(shop);
         return  Result.fail("店铺不存在");
