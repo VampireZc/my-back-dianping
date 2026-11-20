@@ -12,6 +12,7 @@ import com.zc.mybackdianping.dto.Result;
 import com.zc.mybackdianping.entity.Shop;
 import com.zc.mybackdianping.mapper.ShopServiceMapper;
 import com.zc.mybackdianping.service.IShopService;
+import com.zc.mybackdianping.utils.CacheClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.NonNull;
@@ -29,13 +30,28 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class ShopServiceImpl extends ServiceImpl<ShopServiceMapper, Shop> implements IShopService {
     private final StringRedisTemplate stringRedisTemplate;
+    private final CacheClient cacheClient;
+
 
     private static final ExecutorService CACHE_REBUILD_EXECUTOR = Executors.newFixedThreadPool(10);
     @Override
     public Result queryById(Long id) {
         // Shop shop = queryWithPass(id);// 解决缓存穿透
         // Shop shop = queryWithMutex(id);// 解决缓存击穿
-        Shop shop = queryWithLogicalExpire(id);// 逻辑过期
+        // Shop shop = queryWithLogicalExpire(id);// 逻辑过期
+       // ------- 封装缓存穿透 -------
+
+        Shop shop = cacheClient.queryWithPass( // 封装缓存穿透
+                id,
+                RedisConstants.REDIS_SHOP_INFO,
+                Shop.class,
+                shopId -> getById(shopId),
+                RedisConstants.REDIS_SHOP_INFO_EXPIRE,
+                TimeUnit.MINUTES
+        );
+
+
+
         if (shop != null) return Result.ok(shop);
         return  Result.fail("店铺不存在");
     }
