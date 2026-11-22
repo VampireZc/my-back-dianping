@@ -10,8 +10,10 @@ import com.zc.mybackdianping.service.ISeckillVoucherService;
 import com.zc.mybackdianping.service.IVoucherOrderService;
 import com.zc.mybackdianping.utils.UserContent;
 import lombok.RequiredArgsConstructor;
-import org.jspecify.annotations.NonNull;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +25,13 @@ import java.util.Objects;
 public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
 
     private final ISeckillVoucherService seckillVoucherService;
+    private final StringRedisTemplate stringRedisTemplate;
+    private final RedissonClient redissonClient;
 
+    // 使用 Redis 分布式锁（替代 JVM synchronized）保证集群部署下"一人一单"的并发安全，
+    // 并配合动态代理对象解决类内自调用导致的 @Transactional 事务失效问题，保证事务提交再释放锁
+    // 使用 Lua 脚本保证"释放锁"时判断持有者与删除的原子性，避免误删其他线程的锁
+    // 改用 Redisson：自带看门狗自动续期与可重入，省去手写锁与 unlock.lua
     @Override
     public Result seckillVoucher(Long voucherId) {
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
@@ -39,14 +47,31 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         if (voucher.getStock() <= 0){
             return Result.fail("库存不足");
         }
-        Long id = UserContent.getUser().getId();
+        Long usr_id = UserContent.getUser().getId();
 
         // 添加线程锁
-        synchronized (id.toString().intern()) {
+        // RedisLockImpl redisLock = new RedisLockImpl(stringRedisTemplate, "order" + usr_id);
+        // 获取锁
+        // boolean isLock = redisLock.tryLock(10L);
+
+        //  Redisson 一行搞定，自带看门狗自动续
+        RLock lock = redissonClient.getLock("order" + usr_id);
+        boolean isLock = lock.tryLock();
+
+        //synchronized (id.toString().intern()) {
+        if (!isLock) {
+            return Result.fail("请勿重复下单");
+        }
+
+        try {
             // 使用动态代理对象（事务）
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
+        }finally {
+            lock.unlock();
         }
+
+        //}
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -70,11 +95,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
         if (!suc) {
             return Result.fail("库存不足");
-        }
-
-        VoucherOrder voucherOrder = getById(voucherId);
-        if (Objects.equals(voucherOrder.getUserId(), UserContent.getUser().getId())){
-            return Result.fail("每个用户只能购买一次");
         }
 
         // 创建订单
