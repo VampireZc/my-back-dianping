@@ -101,13 +101,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
 
     @Override
     public Result logout() {
-        // 从当前请求头中取出 token（登录态由 authorization 请求头携带）
-        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
-        if (attributes == null) {
-            return Result.fail("未登录");
-        }
-        HttpServletRequest request = attributes.getRequest();
-        String token = request.getHeader("authorization");
+        String token = UserContent.getUser().getToken();
         if (StrUtil.isBlank(token)) {
             return Result.fail("未登录");
         }

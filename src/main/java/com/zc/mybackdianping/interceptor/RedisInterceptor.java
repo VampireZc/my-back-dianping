@@ -36,6 +36,7 @@ public class RedisInterceptor implements HandlerInterceptor {
         }
         // 把map转换为UserDTO
         UserDTO userDTO = BeanUtil.fillBeanWithMap(userMap, new UserDTO(), true);
+        userDTO.setToken(token);
         UserContent.setUserContent(userDTO);
         // 重置token过期时间
         stringRedisTemplate.expire(key, RedisConstants.REDIS_USER_TOKEN_EXPIRE, TimeUnit.MINUTES);
