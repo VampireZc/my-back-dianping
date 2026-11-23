@@ -30,4 +30,9 @@ public class UserController {
         UserDTO userDTO = UserContent.getUser();
         return Result.ok(userDTO);
     }
+
+    @PostMapping("/logout")
+    public Result logout(){
+        return userService.logout();
+    }
 }

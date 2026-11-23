@@ -4,6 +4,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.lang.UUID;
 import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.RandomUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.zc.mybackdianping.constants.RedisConstants;
 import com.zc.mybackdianping.dto.LoginFormDTO;
@@ -15,11 +16,14 @@ import com.zc.mybackdianping.service.IUserService;
 import com.zc.mybackdianping.utils.RegexUtils;
 import com.zc.mybackdianping.constants.SystemConstants;
 import com.zc.mybackdianping.utils.UserContent;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -93,6 +97,25 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements IU
         stringRedisTemplate.expire(key, RedisConstants.REDIS_USER_TOKEN_EXPIRE, TimeUnit.MINUTES);
         // session.setAttribute(SystemConstants.USER_SESSION_KEY, userDTO);
         return Result.ok(token);
+    }
+
+    @Override
+    public Result logout() {
+        // 从当前请求头中取出 token（登录态由 authorization 请求头携带）
+        ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+        if (attributes == null) {
+            return Result.fail("未登录");
+        }
+        HttpServletRequest request = attributes.getRequest();
+        String token = request.getHeader("authorization");
+        if (StrUtil.isBlank(token)) {
+            return Result.fail("未登录");
+        }
+        // 删除 redis 中该 token 对应的用户信息，使令牌立即失效
+        stringRedisTemplate.delete(RedisConstants.REDIS_USER_TOKEN + token);
+        // 清理当前线程的用户上下文
+        UserContent.removeUserDTO();
+        return Result.ok();
     }
 
 

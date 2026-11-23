@@ -29,7 +29,7 @@ import java.util.concurrent.Executors;
 // "校验"和"下单落库"解耦，收到请求先快速判断资格，然后立刻返回，真正的数据库写入交给后台线程慢慢消化。
 
 @Slf4j
-@Service
+// @Service
 public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucher2OrderService {
 
     @Resource

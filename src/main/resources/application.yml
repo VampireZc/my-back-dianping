@@ -19,6 +19,7 @@ spring:
     port: 5672
     username: zc
     password: 123
+    virtual-host: /dm
     listener:
       simple:
         prefetch: 1

@@ -13,4 +13,7 @@ public class RedisConstants {
 
     public static final Long REDIS_SHOP_NULL_EXPIRE = 2L;
     public static final String CACHE_SHOP_KEY = "cache:shop:";
+
+    public static final String SECKILL_STOCK_KEY = "seckill:stock:";
+    public static final String SECKILL_ORDER_KEY = "seckill:order:";
 }
