@@ -5,6 +5,7 @@ import com.zc.mybackdianping.dto.Result;
 import com.zc.mybackdianping.entity.VoucherOrder;
 import com.zc.mybackdianping.mapper.VoucherOrderMapper;
 import com.zc.mybackdianping.service.ISeckillVoucherService;
+import com.zc.mybackdianping.service.IVoucher2OrderService;
 import com.zc.mybackdianping.service.IVoucherOrderService;
 import com.zc.mybackdianping.utils.UserContent;
 import jakarta.annotation.PostConstruct;
@@ -25,9 +26,11 @@ import java.util.concurrent.BlockingDeque;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+// "校验"和"下单落库"解耦，收到请求先快速判断资格，然后立刻返回，真正的数据库写入交给后台线程慢慢消化。
+
 @Slf4j
 @Service
-public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucherOrderService {
+public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, VoucherOrder> implements IVoucher2OrderService {
 
     @Resource
     private ISeckillVoucherService seckillVoucherService;
@@ -45,6 +48,8 @@ public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
     @PostConstruct
     public void init() {
         SECKILL_ORDER_EXECUTOR.submit(new VoucherOrderHandler());
+        // 朴素写法
+        // new Thread(new VoucherOrderHandler()).start();
     }
 
     // 匿名内部类实现Runnable接口 创建订单
@@ -53,7 +58,7 @@ public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
         public void run() {
             while (true) {
                 try {
-                    // 从阻塞队列中取出订单
+                    // 从阻塞队列中取出订单，特点：没数据就睡觉、有数据就叫醒
                     VoucherOrder order = ordersTasks.take();
                     // 处理订单（加锁 + 事务落库）
                     handleSeckillOrder(order);
@@ -157,11 +162,6 @@ public class Voucher2OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
         }
 
         save(order);
-    }
-
-    @Override
-    public Result createVoucherOrder(Long voucherId) {
-        return null;
     }
 }
 

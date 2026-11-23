@@ -14,6 +14,15 @@ spring:
   jackson:
     default-property-inclusion: non_null
 
+  rabbitmq:
+    host: 192.168.64.4
+    port: 5672
+    username: zc
+    password: 123
+    listener:
+      simple:
+        prefetch: 1
+
   data:
     redis:
       database: 8

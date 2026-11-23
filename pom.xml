@@ -95,6 +95,11 @@
             <artifactId>redisson</artifactId>
             <version>3.17.7</version>
         </dependency>
+        <!--使用rabbitmq-->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
     </dependencies>
 
 

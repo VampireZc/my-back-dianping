@@ -8,6 +8,7 @@ import com.zc.mybackdianping.entity.VoucherOrder;
 import com.zc.mybackdianping.mapper.VoucherOrderMapper;
 import com.zc.mybackdianping.service.ISeckillVoucherService;
 import com.zc.mybackdianping.service.IVoucherOrderService;
+import com.zc.mybackdianping.utils.RedisLockImpl;
 import com.zc.mybackdianping.utils.UserContent;
 import lombok.RequiredArgsConstructor;
 import org.redisson.api.RLock;
@@ -19,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
@@ -54,19 +56,20 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         // 获取锁
         // boolean isLock = redisLock.tryLock(10L);
 
+        //synchronized (id.toString().intern()) {
+
         //  Redisson 一行搞定，自带看门狗自动续
         RLock lock = redissonClient.getLock("order" + usr_id);
-        boolean isLock = lock.tryLock();
-
-        //synchronized (id.toString().intern()) {
-        if (!isLock) {
-            return Result.fail("请勿重复下单");
-        }
-
         try {
+            boolean isLock = lock.tryLock(10, TimeUnit.SECONDS);
+            if (!isLock) {
+                return Result.fail("请勿重复下单");
+            }
             // 使用动态代理对象（事务）
             IVoucherOrderService proxy = (IVoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
+        }catch (Exception e){
+            return Result.fail("下单失败");
         }finally {
             lock.unlock();
         }
