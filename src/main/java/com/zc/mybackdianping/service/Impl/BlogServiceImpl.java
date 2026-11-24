@@ -7,21 +7,25 @@ import com.baomidou.mybatisplus.spring.service.impl.ServiceImpl;
 import com.zc.mybackdianping.constants.RedisConstants;
 import com.zc.mybackdianping.constants.SystemConstants;
 import com.zc.mybackdianping.dto.Result;
+import com.zc.mybackdianping.dto.ScrollResult;
 import com.zc.mybackdianping.dto.UserDTO;
 import com.zc.mybackdianping.entity.Blog;
+import com.zc.mybackdianping.entity.Follow;
 import com.zc.mybackdianping.entity.User;
 import com.zc.mybackdianping.mapper.BlogMapper;
 import com.zc.mybackdianping.service.IBlogService;
+import com.zc.mybackdianping.service.IFollowService;
 import com.zc.mybackdianping.service.IUserService;
 import com.zc.mybackdianping.utils.UserContent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jspecify.annotations.NonNull;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +33,7 @@ import java.util.stream.Collectors;
 public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IBlogService {
 
     private final IUserService userService;
+    private final IFollowService followService;
     private final StringRedisTemplate stringRedisTemplate;
 
     @Override
@@ -39,7 +44,16 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
         if (!suc){
             return Result.fail("发布失败");
         }
-        return Result.ok();
+        // 查询当前用户所有的粉丝
+        List<Follow> fans = followService.query().eq("follow_user_id", userId).list();
+        if (fans.isEmpty()){
+            return Result.ok();
+        }
+        fans.forEach(fan -> {
+            String key = RedisConstants.BLOG_FANS_KEY + fan.getUserId();
+            stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
+        });
+        return Result.ok(blog.getId());
     }
 
     @Override
@@ -119,6 +133,74 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements IB
 
 
         return Result.ok(dtoList);
+    }
+
+    @Override
+    public Result getBlogsByUser(Long id, Integer current) {
+        Page<Blog> page = query()
+                .eq("user_id", id)
+                .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+
+        List<Blog> list = page.getRecords();
+        return Result.ok(list);
+    }
+
+    @Override
+    public Result getBlogsByMe() {
+        return getBlogsByUser(UserContent.getUser().getId(), 1);
+    }
+
+    @Override
+    public Result getBlogsByFollow(Long max, Integer offset) {
+        // 拿到当前用户的收件箱
+        Long userId = UserContent.getUser().getId();
+        String key = RedisConstants.BLOG_FANS_KEY + userId;
+        // 根据收件箱解析出博客ID与时间戳
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet().reverseRangeByScoreWithScores(
+                key,
+                0,
+                max,
+                offset,
+                2
+        );
+
+        if (typedTuples == null || typedTuples.isEmpty()){
+            return Result.ok(List.of());
+        }
+
+        // 根据ids查询博客列表
+        List<Long> ids = typedTuples.stream()
+                .map(typedTuple -> Long.valueOf(typedTuple.getValue()))
+                .toList();
+        // 封装成排序信息
+        String idStr = StrUtil.join(",", ids);
+        List<Blog> blogs = query().in("id", ids).last("order by field(id, " + idStr + ")").list();
+        for (Blog blog : blogs){
+            // 组装用户信息
+            queryBlogUser(blog);
+            // 组装点赞信息
+            isBlogLiked(blog);
+        }
+
+        // 计算最小时间戳和偏移量
+        long minTime = 0;
+        int os = 1;
+        for (ZSetOperations.TypedTuple<String> tuple : typedTuples) {
+            // 获取分数(时间戳）
+            long time = tuple.getScore().longValue();
+            if(time == minTime){
+                os++;
+            }else{
+                minTime = time;
+                os = 1;
+            }
+        }
+        ScrollResult r = new ScrollResult();
+        r.setList(blogs);
+        r.setOffset(os);
+        r.setMinTime(minTime);
+
+        return Result.ok(r);
     }
 
     private void isBlogLiked(Blog blog) {

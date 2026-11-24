@@ -5,5 +5,12 @@ import com.zc.mybackdianping.dto.Result;
 import com.zc.mybackdianping.entity.Follow;
 
 public interface IFollowService extends IService<Follow> {
-    Result follow(Integer id, Boolean isFollow);
+    // 点击关注
+    Result follow(Long id, Boolean isFollow);
+
+    // 是否关注
+    Result isFollow(Long id);
+
+    // 共同关注
+    Result commonFollowees(Long id);
 }

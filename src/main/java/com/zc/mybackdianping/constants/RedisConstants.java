@@ -20,4 +20,8 @@ public class RedisConstants {
     public static final String SHOP_OF_NAME_LIST = "shopName:list";
 
     public static final String BLOG_USER_LIKED = "blog:liked:";
+
+    public static final String USER_FOLLOW_KEY = "user:follow:";
+
+    public static final String BLOG_FANS_KEY = "blog:fans:";
 }

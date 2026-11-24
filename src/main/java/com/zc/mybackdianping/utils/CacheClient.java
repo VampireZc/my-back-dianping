@@ -191,9 +191,9 @@ public class CacheClient {
             log.info("命中空值缓存，店铺不存在");
             return null;
         }
-        log.info("缓存命中 shopInfo {}", shopInfo);
+        log.info("缓存命中 shopInfo");
         R r = JSONUtil.toBean(shopInfo, type);
-        log.info("缓存命中 r {}", r);
+        log.info("缓存命中 r");
         return r;
     }
 

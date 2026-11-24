@@ -38,4 +38,25 @@ public class BlogController {
         return blogService.queryBlogLikesTop5(id);
     }
 
+    @GetMapping("/of/user")
+    public Result getBlogsByUser(
+            @RequestParam("id") Long id,
+            @RequestParam(value = "current", defaultValue = "1") Integer current
+    ) {
+        return blogService.getBlogsByUser(id, current);
+    }
+
+    @GetMapping("/of/me")
+    public Result getBlogsByMe() {
+        return blogService.getBlogsByMe();
+    }
+
+    @GetMapping("/of/follow")
+    public Result getBlogsByFollow(
+            @RequestParam("lastId") Long max,
+            @RequestParam(value = "offset", defaultValue = "0") Integer offset
+    ) {
+        return blogService.getBlogsByFollow(max, offset);
+    }
+
 }

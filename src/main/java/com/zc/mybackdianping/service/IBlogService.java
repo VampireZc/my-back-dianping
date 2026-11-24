@@ -20,4 +20,13 @@ public interface IBlogService extends IService<Blog> {
 
     // 查询博客点赞数前五
     Result queryBlogLikesTop5(Long id);
+
+    // 达人主页笔记列表
+    Result getBlogsByUser(Long id, Integer current);
+
+    // 个人主页笔记列表
+    Result getBlogsByMe();
+
+    // 查看关注的博客列表
+    Result getBlogsByFollow(Long max, Integer offset);
 }
