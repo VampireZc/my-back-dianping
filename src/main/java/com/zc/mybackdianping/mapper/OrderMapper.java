@@ -1,6 +1,6 @@
 package com.zc.mybackdianping.mapper;
 
-import com.zc.mybackdianping.dto.OrderVO;
+import com.zc.mybackdianping.vo.OrderVO;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 

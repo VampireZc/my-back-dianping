@@ -28,4 +28,8 @@ public class RedisConstants {
     public static final String ORDER_PAGE_VER_KEY = "order:ver:";
     public static final String ORDER_PAGE_KEY = "order:page:";
     public static final Long ORDER_PAGE_EXPIRE_KEY = 10L;
+
+    public static final String BLOG_COMMENT_LIKED = "blog:comment:liked:";
+    public static final String BLOG_COMMENT_PAGE = "blog:comment:page:";
+    public static final String BLOG_COMMENT_PAGE_LOCK = "blog:comment:page:lock:";
 }

@@ -1,4 +1,4 @@
-package com.zc.mybackdianping.dto;
+package com.zc.mybackdianping.vo;
 
 import lombok.Data;
 

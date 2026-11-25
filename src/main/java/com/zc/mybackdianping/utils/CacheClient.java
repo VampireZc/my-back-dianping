@@ -72,7 +72,7 @@ public class CacheClient {
     }
 
     // 缓存击穿( 互斥锁 )
-    private <R,ID> R queryWithMutex(
+    public <R,ID> R queryWithMutex(
             ID id,
             String keyPrefix,
             String lockPrefix,

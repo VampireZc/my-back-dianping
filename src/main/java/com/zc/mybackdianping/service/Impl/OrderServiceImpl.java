@@ -6,7 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zc.mybackdianping.constants.RedisConstants;
 import com.zc.mybackdianping.constants.SystemConstants;
-import com.zc.mybackdianping.dto.OrderVO;
+import com.zc.mybackdianping.vo.OrderVO;
 import com.zc.mybackdianping.dto.Result;
 import com.zc.mybackdianping.dto.UserDTO;
 import com.zc.mybackdianping.entity.VoucherOrder;

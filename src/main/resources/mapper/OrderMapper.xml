@@ -28,7 +28,7 @@
         left join tb_seckill_voucher t4 on t2.id = t4.voucher_id
     </sql>
 
-    <select id="queryByUserID" resultType="com.zc.mybackdianping.dto.OrderVO">
+    <select id="queryByUserID" resultType="com.zc.mybackdianping.vo.OrderVO">
         select
         <include refid="orderColumns"/>
         <include refid="orderFrom"/>
@@ -42,7 +42,7 @@
     </select>
 
 
-    <select id="queryByOrderID" resultType="com.zc.mybackdianping.dto.OrderVO">
+    <select id="queryByOrderID" resultType="com.zc.mybackdianping.vo.OrderVO">
         select
         <include refid="orderColumns"/>
         <include refid="orderFrom"/>

@@ -7,4 +7,5 @@ public class SystemConstants {
     public static final String USER_SESSION_KEY = "user";
     public static final int DEFAULT_PAGE_SIZE = 5;
     public static final int MAX_PAGE_SIZE = 10;
+    public static final int DEFAULT_STATUS_CODE = 0;
 }
