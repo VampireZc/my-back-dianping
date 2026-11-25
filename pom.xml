@@ -72,6 +72,13 @@
             <version>3.5.17</version>
         </dependency>
 
+        <!-- MP 3.5.9+ 分页插件（PaginationInnerInterceptor）拆到独立模块 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-jsqlparser</artifactId>
+            <version>3.5.17</version>
+        </dependency>
+
         <dependency>
             <groupId>cn.hutool</groupId>
             <artifactId>hutool-all</artifactId>

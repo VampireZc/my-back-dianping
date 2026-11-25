@@ -17,4 +17,6 @@ public interface ICommentService extends IService<Comments> {
 
     // 删除评论
     Result deleteComment(Integer id);
+
+    Result getReplies(Integer parentId, Integer current);
 }

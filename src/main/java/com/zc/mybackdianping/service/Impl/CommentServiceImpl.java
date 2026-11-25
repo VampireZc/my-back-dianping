@@ -58,6 +58,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
 
         }
         save(comments);
+        clearCache(RedisConstants.BLOG_COMMENT_PAGE + comments.getBlogId() + ":" + 1);
         log.info("添加评论成功 {}", comments);
         return Result.ok();
 
@@ -80,6 +81,12 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
         );
 
         if (pageVO == null) return Result.fail("评论不存在");
+        // 处理是否点赞数据
+        pageVO.getRecords().forEach(comment -> {
+            String key = RedisConstants.BLOG_COMMENT_LIKED + comment.getId();
+            Double score = stringRedisTemplate.opsForZSet().score(key, String.valueOf(userId));
+            comment.setIsLike(score != null);
+        });
         return Result.ok(pageVO);
 
     }
@@ -108,6 +115,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
                 .total(page.getTotal())
                 .current(page.getCurrent())
                 .size(page.getSize())
+                .pages((page.getTotal() + page.getSize() - 1) / page.getSize())
                 .build();
     }
 
@@ -136,8 +144,6 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
         if (suc){
             stringRedisTemplate.opsForZSet().add(key, String.valueOf(userId), System.currentTimeMillis());
         }
-        // 删除缓存以确保数据一致性
-        clearCache(RedisConstants.BLOG_COMMENT_PAGE + id + ":" + 1);
         return Result.ok(suc);
     }
 
@@ -161,8 +167,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
         log.info("删除评论 {}", b);
         // 查询该评论关联的二级评论
         List<Comments> replies = query()
-                .eq(isLevelOne,"answer_id", comments.getId())
-                .eq(!isLevelOne,"parent_id", comments.getId())
+                .eq(isLevelOne ? "answer_id" : "parent_id" , comments.getId())
                 .eq("status", SystemConstants.DEFAULT_STATUS_CODE)
                 .eq("user_id", userId)
                 .list();
@@ -175,22 +180,48 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper, Comments> imp
         return Result.ok("删除成功");
     }
 
+    @Override
+    // Service：不缓存（PRD 约定回复不进缓存）
+    public Result getReplies(Integer parentId, Integer current) {
+        long userId = isValid();
+        Page<Comments> page = query()
+                .eq("parent_id", parentId)
+                .eq("status", SystemConstants.DEFAULT_STATUS_CODE)
+                .orderByAsc("create_time")          // 回复按时间正序，和一级评论一致
+                .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
+
+        List<CommentVO> list = page.getRecords().stream().map(this::buildCommentVO).toList();
+        // isLike 补齐别漏：这里不走缓存，但一样要按当前用户算
+        list.forEach(c -> c.setIsLike(
+                stringRedisTemplate.opsForZSet().score(
+                        RedisConstants.BLOG_COMMENT_LIKED + c.getId(), String.valueOf(userId)) != null));
+        return Result.ok(CommentPageVO.builder()
+                .records(list).total(page.getTotal())
+                .current(page.getCurrent()).size(page.getSize())
+                .pages((page.getTotal() + page.getSize() - 1) / page.getSize())
+                .build());
+    }
+
     // 构建评论VO对象
     public CommentVO buildCommentVO(Comments comments){
         User user = userService.getOne(new QueryWrapper<User>().eq("id", comments.getUserId()));
         CommentVO vo = BeanUtil.copyProperties(comments, CommentVO.class);
         vo.setNickName(user.getNickName());
         vo.setIcon(user.getIcon());
-        // 统计被回复次数
-        List<Comments> replies = query().eq("answer_id", comments.getId()).list();
-        vo.setReplayCount((long) replies.size());
+        // 统计被回复次数：一级评论按 parent_id 计全部回复（含回复的回复），二级按 answer_id 计
+        boolean isRoot = comments.getParentId() == 0;
+        List<Comments> replies = query().eq(isRoot ? "parent_id" : "answer_id", comments.getId()).list();
+        vo.setReplyCount((long) replies.size());
         List<CommentVO> listVo = replies.stream()
                         .map(s -> {
                             if (!s.getParentId().equals(s.getAnswerId())) {
-                                // 查询父评论的用户信息
-                                Comments parent = getById(s.getParentId());
-                                User parentUser = userService.getOne(new QueryWrapper<User>().eq("id", parent.getUserId()));
-                                s.setContent("回复@" + parentUser.getNickName() + "：" + s.getContent());
+                                // 回复的回复：前缀 @ 被直接回复者（answer）的作者
+                                Comments answer = getById(s.getAnswerId());
+                                User answerUser = userService.getOne(
+                                        new QueryWrapper<User>()
+                                                .eq("id", answer.getUserId())
+                                );
+                                s.setContent("回复@" + answerUser.getNickName() + "：" + s.getContent());
                             }
                             return buildCommentVO(s);
                         })

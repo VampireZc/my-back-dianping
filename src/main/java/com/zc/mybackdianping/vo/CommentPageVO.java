@@ -16,4 +16,5 @@ public class CommentPageVO {
     private long total;
     private long current;
     private long size;
+    private long pages;
 }

@@ -34,4 +34,11 @@ public class CommentController {
     public Result deleteComment(@PathVariable("id") Integer id){
         return commentService.deleteComment(id);
     }
+
+    // Controller
+    @GetMapping("/{parentId}/replies")
+    public Result getReplies(@PathVariable Integer parentId,
+                             @RequestParam(defaultValue = "1") Integer current) {
+        return commentService.getReplies(parentId, current);
+    }
 }

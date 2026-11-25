@@ -11,8 +11,9 @@ import java.util.List;
 public class CommentVO extends Comments {
     private String nickName;
     private String icon;
-    private boolean isLike;
-    private Long replayCount;
+    // 必须用包装类型 Boolean + 名字 isLike：Lombok 生成 getIsLike()，
+    private Boolean isLike;
+    private Long replyCount;
     // 前两条回复
     private List<CommentVO> replies;
 }
