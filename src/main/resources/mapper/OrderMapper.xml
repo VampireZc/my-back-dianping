@@ -33,7 +33,10 @@
         <include refid="orderColumns"/>
         <include refid="orderFrom"/>
         where t1.user_id = #{userId}
-        <if test="status != null">
+        <if test="status != null and status == 4" >
+            and t1.status in(4,5,6)
+        </if>
+        <if test="status != null and status !=4" >
             and t1.status = #{status}
         </if>
     </select>

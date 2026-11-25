@@ -8,6 +8,7 @@ import com.zc.mybackdianping.constants.RedisConstants;
 import com.zc.mybackdianping.constants.SystemConstants;
 import com.zc.mybackdianping.dto.OrderVO;
 import com.zc.mybackdianping.dto.Result;
+import com.zc.mybackdianping.dto.UserDTO;
 import com.zc.mybackdianping.entity.VoucherOrder;
 import com.zc.mybackdianping.mapper.OrderMapper;
 import com.zc.mybackdianping.service.IOrderService;
@@ -33,10 +34,11 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public Result queryPage(Integer status, int current) {
-        Long userId = UserContent.getUser().getId();
-        if (userId == null){
+        UserDTO user = UserContent.getUser();
+        if (user == null){
             return Result.fail("用户未登录");
         }
+        Long userId = user.getId();
         // 设置版本号
         String verKey = RedisConstants.ORDER_PAGE_VER_KEY + userId;
         // 设置版本号初始值为0
@@ -61,25 +63,35 @@ public class OrderServiceImpl implements IOrderService {
             );
         }
 
+        // 处理分页信息
         Page<OrderVO> page = new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE);
-        page.setRecords(orderVOList);
-
+        int from =  Math.min((current - 1) * SystemConstants.DEFAULT_PAGE_SIZE, orderVOList.size());
+        int to = Math.min(from + SystemConstants.DEFAULT_PAGE_SIZE, orderVOList.size());
+        page.setRecords(orderVOList.subList(from,to));
         return Result.ok(page);
     }
 
     @Override
     public Result getOrder(Long id) {
-        Long userId = UserContent.getUser().getId();
-        if (userId == null){
-            return Result.fail("用户未登录，无法获取订单");
+        UserDTO user = UserContent.getUser();
+        if (user == null){
+            return Result.fail("用户未登录");
         }
+        Long userId = user.getId();
         OrderVO orderVO = orderMapper.queryByOrderID(userId,  id);
+        if (orderVO == null){
+            return Result.fail("订单不存在");
+        }
         return Result.ok(orderVO);
     }
 
     @Override
     public Result payOrder(Long id) {
-        Long userId = UserContent.getUser().getId();
+        UserDTO user = UserContent.getUser();
+        if (user == null){
+            return Result.fail("用户未登录");
+        }
+        Long userId = user.getId();
 
         if (isValidOrder(id, userId, "1")){
             return Result.fail("订单不存在");
@@ -104,7 +116,11 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public Result useOrder(Long id) {
-        Long userId = UserContent.getUser().getId();
+        UserDTO user = UserContent.getUser();
+        if (user == null){
+            return Result.fail("用户未登录");
+        }
+        Long userId = user.getId();
 
         if (isValidOrder(id, userId, "2")){
             return Result.fail("订单不存在");
@@ -127,7 +143,11 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public Result cancelOrder(Long id) {
-        Long userId = UserContent.getUser().getId();
+        UserDTO user = UserContent.getUser();
+        if (user == null){
+            return Result.fail("用户未登录");
+        }
+        Long userId = user.getId();
 
         if (isValidOrder(id, userId, "1")){
             return Result.fail("订单不存在");
