@@ -17,4 +17,6 @@ public interface IOrderService {
 
     // 取消订单
     Result cancelOrder(Long id);
+    // 重载
+    Result cancelOrder(Long id, boolean byMq);
 }

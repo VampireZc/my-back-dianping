@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zc.mybackdianping.constants.RedisConstants;
 import com.zc.mybackdianping.constants.SystemConstants;
+import com.zc.mybackdianping.service.ISeckillVoucherService;
 import com.zc.mybackdianping.vo.OrderVO;
 import com.zc.mybackdianping.dto.Result;
 import com.zc.mybackdianping.dto.UserDTO;
@@ -18,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -31,6 +33,8 @@ public class OrderServiceImpl implements IOrderService {
     private final OrderMapper orderMapper;
     private final IVoucherOrderService voucherOrderService;
     private final StringRedisTemplate stringRedisTemplate;
+    private final ISeckillVoucherService seckillVoucherService;
+
 
     @Override
     public Result queryPage(Integer status, int current) {
@@ -143,14 +147,25 @@ public class OrderServiceImpl implements IOrderService {
 
     @Override
     public Result cancelOrder(Long id) {
-        UserDTO user = UserContent.getUser();
-        if (user == null){
-            return Result.fail("用户未登录");
-        }
-        Long userId = user.getId();
+        return cancelOrder(id, false);
+    }
 
-        if (isValidOrder(id, userId, "1")){
-            return Result.fail("订单不存在");
+    @Override
+    @Transactional
+    public Result cancelOrder(Long id,boolean byMq) {
+        Long userId;
+        VoucherOrder order = voucherOrderService.getById(id);
+        if (byMq) { // 通过消息队列
+            if (order == null) {
+                return Result.fail("订单不存在");
+            }
+            userId = order.getUserId();
+        } else { // 通过用户请求
+            UserDTO user = UserContent.getUser();
+            if (user == null) {
+                return Result.fail("用户未登录");
+            }
+            userId = user.getId();
         }
 
 
@@ -159,12 +174,23 @@ public class OrderServiceImpl implements IOrderService {
                 .set("status", 4)
                 .eq("id", id)
                 .eq("user_id", userId)
+                .eq("status", 1)
                 .update();
 
         if (!update){
             return Result.fail("取消失败");
         }
         log.info("订单取消成功");
+        // 恢复库存
+        seckillVoucherService.update()
+                .setSql("stock = stock + 1")
+                .eq("voucher_id", order.getVoucherId())
+                .update();
+        // 恢复缓存库存
+        stringRedisTemplate.opsForValue().increment(RedisConstants.SECKILL_STOCK_KEY + order.getVoucherId());
+        // 删除优惠券的领取记录
+        stringRedisTemplate.opsForSet().remove(RedisConstants.SECKILL_ORDER_KEY + order.getVoucherId(), userId.toString());
+        log.info("恢复库存成功：{}", order.getVoucherId());
         updateVersion(userId); // 修改版本号
         return Result.ok("取消成功");
     }

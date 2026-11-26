@@ -40,6 +40,8 @@ public class Voucher3OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
     private RedissonClient redissonClient;
     @Resource
     private ISeckillVoucherService seckillVoucherService;
+    @Resource
+    private OrderServiceImpl orderServiceImpl;
 
     // 提前加载好lua脚本
     private static final DefaultRedisScript<Long> SECKILL_SCRIPT;
@@ -114,6 +116,8 @@ public class Voucher3OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
         Long count = query()
                 .eq("user_id", order.getUserId())
                 .eq("voucher_id", order.getVoucherId())
+                // 订单状态不等于4
+                .ne("status", 4)
                 .count();
 
         if (count > 0) {
@@ -133,7 +137,19 @@ public class Voucher3OrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vo
             return;
         }
 
-        save(order);
+        boolean save = save(order);
+        if (save){
+            // 增加订单页面版本号
+            orderServiceImpl.updateVersion(order.getUserId());
+
+            // 发送延迟消息，15分钟后支付超时取消
+            log.info("发送延迟消息，15分钟后支付超时取消，订单：{}", order.getId());
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.ORDER_DELAY_EXCHANGE,
+                    RabbitConfig.ORDER_DELAY_KEY,
+                    order.getId()
+            );
+        }
     }
 
     // 监听队列消息
